@@ -51,6 +51,32 @@ elif command -v apt >/dev/null; then
   fi
 fi # <--- CRITICAL FIX: Closes the main 'elif command -v apt' block cleanly
 
+  # Handle Eww natively via Rust Cargo compilation if it is missing
+  if ! command -v eww >/dev/null; then
+    echo "Eww is missing! Installing build headers..."
+    
+    # 1. Ensure required background window-rendering dev libraries are active
+    sudo apt install -y build-essential libgtk-3-dev libpango1.0-dev libgdk-pixbuf-2.0-dev libcairo2-dev libglib2.0-dev
+
+    # 2. Verify that the Rust toolchain path is actively loaded in the active shell environment
+    if [ -f "$HOME/.cargo/env" ]; then
+      source "$HOME/.cargo/env"
+    fi
+
+    # 3. Force-compile Eww directly via Cargo crate modules
+    if command -v cargo >/dev/null; then
+      echo "Compiling Eww from source crates..."
+      cargo install eww --locked
+      
+      # 4. Link the executable output path straight to your global path environments
+      sudo ln -sf "$HOME/.cargo/bin/eww" /usr/local/bin/eww
+      echo "Eww successfully compiled and linked!"
+    else
+      echo "ERROR: Cargo/Rust is not initialized yet. Install rustup first or re-run chezmoi apply."
+    fi
+  fi
+
+
 # Shell configurations
 if [ -f /usr/bin/fish ]; then chsh -s /usr/bin/fish; fi
 if command -v playerctld >/dev/null; then playerctld daemon; fi
