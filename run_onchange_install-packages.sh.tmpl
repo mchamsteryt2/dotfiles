@@ -24,30 +24,32 @@ elif command -v apt >/dev/null; then
   echo "Installing sanitized APT packages..."
   sudo apt install -y $SANITIZED_PACKAGES
 
-    # Handle lazygit natively via its official pre-compiled GitHub binary (Robust Version)
+  # Handle lazygit natively via its official pre-compiled GitHub binary (Robust Version)
   if ! command -v lazygit >/dev/null; then
     echo "Installing lazygit via explicit GitHub asset path..."
     
     # 1. Fetch the exact redirected archive URL directly from GitHub's redirect pool
     FINAL_DOWNLOAD_URL=$(curl -s -I "https://github.com/jesseduffield/lazygit/releases/latest" | grep -i '^location:' | awk '{print $2}' | sed 's/tag\/v/download\/v/' | tr -d '\r\n')
     
-    # 2. Append the target architecture compressed file string to the parsed base directory URL
-    # This prevents the text engine from scrambling variable layouts
-    COMPLETE_TARGET_URL="${FINAL_DOWNLOAD_URL}/lazygit_$(echo ${FINAL_DOWNLOAD_URL} | awk -F'/v' '{print $NF}')_Linux_x86_64.tar.gz"
+    # 2. Safely parse out everything after /v using bash syntax to avoid chezmoi template errors
+    LAZYGIT_VERSION="${FINAL_DOWNLOAD_URL##*/v}"
+    
+    # 3. Build the final download URL cleanly
+    COMPLETE_TARGET_URL="${FINAL_DOWNLOAD_URL}/lazygit_${LAZYGIT_VERSION}_Linux_x86_64.tar.gz"
     
     echo "Downloading from: ${COMPLETE_TARGET_URL}"
     
-    # 3. Pull down the actual tar file
+    # 4. Pull down the actual tar file
     curl -Lo lazygit.tar.gz "$COMPLETE_TARGET_URL"
     
-    # 4. Extract and relocate the execution block
+    # 5. Extract and relocate the execution block
     tar xf lazygit.tar.gz lazygit
     sudo install lazygit /usr/local/bin/
     rm -f lazygit lazygit.tar.gz
     
     echo "lazygit successfully installed!"
   fi
-
+fi # <--- CRITICAL FIX: Closes the main 'elif command -v apt' block cleanly
 
 # Shell configurations
 if [ -f /usr/bin/fish ]; then chsh -s /usr/bin/fish; fi
