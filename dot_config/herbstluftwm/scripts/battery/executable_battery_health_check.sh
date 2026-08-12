@@ -8,7 +8,16 @@
 
 # ------------ Variables ------------
 
+# 1. Look for the system battery device path
 BATTERY_PATH=$(upower -e | grep battery)
+
+# CRITICAL FIX FOR DESKTOPS: If no battery device path is found by upower,
+# instantly exit the script cleanly before logging or checking values.
+if [ -z "$BATTERY_PATH" ]; then
+    echo "No system battery detected (Desktop PC Layout). Exiting safely."
+    exit 0
+fi
+
 LINE_POWER_PATH=$(upower -e | grep line_power)
 BATTERY_PERCENTAGE=$(upower -i $BATTERY_PATH | grep 'percentage:' | awk '{ print $2 }' | sed 's/%//')
 CABLE_PLUGGED=$(upower -i $LINE_POWER_PATH | grep -A2 'line-power' | grep online | awk '{ print $2 }')
@@ -18,7 +27,6 @@ ACK_HI_FILE="/var/tmp/battery/battery_acknowledged_high_state"
 
 # ------------ Create file structures (if needed) ------------
 mkdir -p /var/tmp/battery
-
 # battery log
 {
     echo $(date +"%Y-%m-%d %H:%M:%S")
