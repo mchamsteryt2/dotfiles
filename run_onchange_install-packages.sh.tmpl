@@ -62,10 +62,11 @@ fi # <--- CRITICAL FIX: Closes the main 'elif command -v apt' block cleanly
       source "$HOME/.cargo/env"
     fi
 
-    # 3. Force-compile Eww directly via Cargo crate modules
+        # 3. Force-compile Eww directly via upstream GitHub Repository source
     if command -v cargo >/dev/null; then
-      echo "Compiling Eww from source crates..."
-      cargo install eww --locked
+      echo "Compiling Eww directly from GitHub source..."
+      # FIXED: Added direct git repo path and forced X11 window layout configurations
+      cargo install --git https://github.com/elkowar/eww --features x11 --locked
       
       # 4. Link the executable output path straight to your global path environments
       sudo ln -sf "$HOME/.cargo/bin/eww" /usr/local/bin/eww
