@@ -8,12 +8,9 @@ if command -v pacman >/dev/null; then
     yay -Sy --needed --noconfirm {{ range .packages.linux.arch.yay }}{{ . }} {{ end }}
   fi
 elif command -v apt >/dev/null; then
-  echo "Injecting repositories forcing Ubuntu 24.04 (noble) for Linux Mint 22.3..."
+  echo "Adding working repositories for Linux Mint 22.3..."
   
-  # CRITICAL FOR MINT: Force the underlying Ubuntu 24.04 codename so PPAs don't look for 'wilma'
-  export DEBIAN_CODENAME=noble
-  
-  sudo add-apt-repository ppa:lazygit-team/release -y
+  # Fastfetch and Deadsnakes safely support Noble (Ubuntu 24.04)
   sudo add-apt-repository ppa:zhangsongcui3371/fastfetch -y
   sudo add-apt-repository ppa:deadsnakes/ppa -y
 
@@ -26,20 +23,34 @@ elif command -v apt >/dev/null; then
     {{ range .packages.linux.debian.apt }}"{{ . }}" {{ end }}
   )
 
-  echo "Sanitizing and installing APT packages..."
+  echo "Installing standard APT packages..."
   for pkg in "${RAW_PACKAGES[@]}"; do
-    # 1. Skip or replace the libgcc-dev broken name entirely
+    # 1. Skip lazygit in the apt loop (we install it via binary below)
+    if [ "$pkg" = "lazygit" ]; then
+      continue
+    fi
+
+    # 2. Swap the libgcc-dev typo for build-essential
     if [ "$pkg" = "libgcc-dev" ]; then
       pkg="build-essential"
     fi
 
     echo "-> Installing: $pkg"
-    # '|| true' keeps the loop alive if any other niche package acts up
     sudo apt install -y "$pkg" || echo "WARNING: $pkg failed, skipping."
   done
+
+  # 3. Safely install lazygit via GitHub Releases Binary (Universal Linux method)
+  if ! command -v lazygit >/dev/null; then
+    echo "Installing lazygit directly from GitHub..."
+    LAZYGIT_VERSION=$(curl -s "https://api.github.com/repos/jesseduffield/lazygit/releases/latest" | grep -Po '"tag_name": "v\K[^"]*')
+    curl -Lo lazygit.tar.gz "https://github.com/jesseduffield/lazygit/releases/latest/download/lazygit_${LAZYGIT_VERSION}_Linux_x86_64.tar.gz"
+    tar xf lazygit.tar.gz lazygit
+    sudo install lazygit /usr/local/bin/
+    rm -f lazygit lazygit.tar.gz
+  fi
 fi
 
-# Ensure paths exist before executing system switches
+# Ensure paths exist before executing shell customisations
 if [ -f /usr/bin/fish ]; then
   chsh -s /usr/bin/fish
 fi
