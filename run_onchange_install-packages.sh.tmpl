@@ -8,23 +8,25 @@ if command -v pacman >/dev/null; then
     yay -Sy --needed --noconfirm {{ range .packages.linux.arch.yay }}{{ . }} {{ end }}
   fi
 elif command -v apt >/dev/null; then
-  echo "Injecting valid repositories for Linux Mint 22.3..."
+  echo "Setting up external repositories..."
   sudo add-apt-repository ppa:zhangsongcui3371/fastfetch -y
   sudo add-apt-repository ppa:deadsnakes/ppa -y
   sudo apt update
 
-  # Generate the clean string layout from your template variables
-  RAW_STRING="{{ range .packages.common }}{{ . }} {{ end }}{{ range .packages.linux.debian.apt }}{{ . }} {{ end }}"
-  
-  # Strip lazygit out of apt list to bypass PPA block, and swap libgcc-dev with libgcc-13-dev
-  SANITIZED_STRING=$(echo "$RAW_STRING" | sed 's/\blazygit\b//g' | sed 's/\blibgcc-dev\b/libgcc-13-dev build-essential/g')
+  # 1. We let chezmoi generate the massive package list string here:
+  RAW_PACKAGES="{{ range .packages.common }}{{ . }} {{ end }}{{ range .packages.linux.debian.apt }}{{ . }} {{ end }}"
 
-  echo "Installing sanitized packages..."
-  sudo apt install -y $SANITIZED_STRING
+  # 2. We use 'sed' to completely sanitize the string inside bash before apt runs:
+  # - Removes 'lazygit' from the apt string
+  # - Replaces 'libgcc-dev' with the working Ubuntu 24.04 'libgcc-13-dev' package
+  SANITIZED_PACKAGES=$(echo "$RAW_PACKAGES" | sed 's/\blazygit\b//g' | sed 's/\blibgcc-dev\b/libgcc-13-dev/g')
 
-  # Handle lazygit correctly via official pre-compiled native binary
+  echo "Installing sanitized APT packages..."
+  sudo apt install -y $SANITIZED_PACKAGES
+
+  # 3. Manually download and install lazygit via its official pre-compiled native binary
   if ! command -v lazygit >/dev/null; then
-    echo "Installing lazygit via corrected GitHub release binary..."
+    echo "Installing lazygit via GitHub release binary..."
     LAZYGIT_VERSION=$(curl -s "https://api.github.com/repos/jesseduffield/lazygit/releases/latest" | grep -Po '"tag_name": "v\K[^"]*')
     curl -Lo lazygit.tar.gz "https://github.com/jesseduffield/lazygit/releases/latest/download/lazygit_${LAZYGIT_VERSION}_Linux_x86_64.tar.gz"
     tar xf lazygit.tar.gz lazygit
@@ -33,7 +35,7 @@ elif command -v apt >/dev/null; then
   fi
 fi
 
-# Shell customizations
+# Shell configurations
 if [ -f /usr/bin/fish ]; then chsh -s /usr/bin/fish; fi
 if command -v playerctld >/dev/null; then playerctld daemon; fi
 if [ -f ~/.config/wallpaper/mountain.jpg ] && command -v betterlockscreen >/dev/null; then
