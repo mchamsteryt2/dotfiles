@@ -8,12 +8,48 @@ if command -v pacman >/dev/null; then
     yay -Sy --needed --noconfirm {{ range .packages.linux.arch.yay }}{{ . }} {{ end }}
   fi
 elif command -v apt >/dev/null; then
+  echo "Adding external repositories for Linux Mint..."
+  # Inject the PPAs required for lazygit, fastfetch, and python3.14
+  sudo add-apt-repository ppa:lazygit-team/release -y
+  sudo add-apt-repository ppa:zhangsongcui3371/fastfetch -y
+  sudo add-apt-repository ppa:deadsnakes/ppa -y
+
+  echo "Refreshing APT cache..."
   sudo apt update
-  sudo apt install -y {{ range .packages.common }}{{ . }} {{ end }}{{ range .packages.linux.debian.apt }}{{ . }} {{ end }}
+
+  # Convert the chezmoi template variables into a Bash array
+  APT_PACKAGES=(
+    {{ range .packages.common }}"{{ . }}" {{ end }}
+    {{ range .packages.linux.debian.apt }}"{{ . }}" {{ end }}
+  )
+
+  echo "Installing APT packages..."
+  for pkg in "${APT_PACKAGES[@]}"; do
+    # On-the-fly fix for the libgcc-dev typo
+    if [ "$pkg" = "libgcc-dev" ]; then
+      pkg="build-essential"
+    fi
+
+    echo "-> Installing $pkg..."
+    # '|| true' allows the loop to continue even if a specific package fails
+    sudo apt install -y "$pkg" || echo "WARNING: Failed to install $pkg, skipping."
+  done
 fi
 
+# Ensure fish path exists before attempting to switch shells
+if [ -f /usr/bin/fish ]; then
+  chsh -s /usr/bin/fish       # set fish as default shell
+fi
 
-chsh -s /usr/bin/fish       # set fish as default shell
-playerctld daemon       # start playerctl
-betterlockscreen -u ~/.config/wallpaper/mountain.jpg # render lockscreen image
-sudo npm install -g tree-sitter-cli # install tree-sitter-cli globally because apt does not have the latest version
+# Ensure background tools are installed before running them
+if command -v playerctld >/dev/null; then
+  playerctld daemon           # start playerctl
+fi
+
+if command -v betterlockscreen >/dev/null; then
+  betterlockscreen -u ~/.config/wallpaper/mountain.jpg # render lockscreen image
+fi
+
+if command -v npm >/dev/null; then
+  sudo npm install -g tree-sitter-cli # install tree-sitter-cli globally
+fi
