@@ -8,8 +8,11 @@ if command -v pacman >/dev/null; then
     yay -Sy --needed --noconfirm {{ range .packages.linux.arch.yay }}{{ . }} {{ end }}
   fi
 elif command -v apt >/dev/null; then
-  echo "Adding external repositories for Linux Mint..."
-  # Inject the PPAs required for lazygit, fastfetch, and python3.14
+  echo "Injecting repositories forcing Ubuntu 24.04 (noble) for Linux Mint 22.3..."
+  
+  # CRITICAL FOR MINT: Force the underlying Ubuntu 24.04 codename so PPAs don't look for 'wilma'
+  export DEBIAN_CODENAME=noble
+  
   sudo add-apt-repository ppa:lazygit-team/release -y
   sudo add-apt-repository ppa:zhangsongcui3371/fastfetch -y
   sudo add-apt-repository ppa:deadsnakes/ppa -y
@@ -17,39 +20,38 @@ elif command -v apt >/dev/null; then
   echo "Refreshing APT cache..."
   sudo apt update
 
-  # Convert the chezmoi template variables into a Bash array
-  APT_PACKAGES=(
+  # Convert template lists into a clean Bash array
+  RAW_PACKAGES=(
     {{ range .packages.common }}"{{ . }}" {{ end }}
     {{ range .packages.linux.debian.apt }}"{{ . }}" {{ end }}
   )
 
-  echo "Installing APT packages..."
-  for pkg in "${APT_PACKAGES[@]}"; do
-    # On-the-fly fix for the libgcc-dev typo
+  echo "Sanitizing and installing APT packages..."
+  for pkg in "${RAW_PACKAGES[@]}"; do
+    # 1. Skip or replace the libgcc-dev broken name entirely
     if [ "$pkg" = "libgcc-dev" ]; then
       pkg="build-essential"
     fi
 
-    echo "-> Installing $pkg..."
-    # '|| true' allows the loop to continue even if a specific package fails
-    sudo apt install -y "$pkg" || echo "WARNING: Failed to install $pkg, skipping."
+    echo "-> Installing: $pkg"
+    # '|| true' keeps the loop alive if any other niche package acts up
+    sudo apt install -y "$pkg" || echo "WARNING: $pkg failed, skipping."
   done
 fi
 
-# Ensure fish path exists before attempting to switch shells
+# Ensure paths exist before executing system switches
 if [ -f /usr/bin/fish ]; then
-  chsh -s /usr/bin/fish       # set fish as default shell
+  chsh -s /usr/bin/fish
 fi
 
-# Ensure background tools are installed before running them
 if command -v playerctld >/dev/null; then
-  playerctld daemon           # start playerctl
+  playerctld daemon
 fi
 
-if command -v betterlockscreen >/dev/null; then
-  betterlockscreen -u ~/.config/wallpaper/mountain.jpg # render lockscreen image
+if [ -f ~/.config/wallpaper/mountain.jpg ] && command -v betterlockscreen >/dev/null; then
+  betterlockscreen -u ~/.config/wallpaper/mountain.jpg
 fi
 
 if command -v npm >/dev/null; then
-  sudo npm install -g tree-sitter-cli # install tree-sitter-cli globally
+  sudo npm install -g tree-sitter-cli
 fi
