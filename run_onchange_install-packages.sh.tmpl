@@ -8,33 +8,32 @@ if command -v pacman >/dev/null; then
     yay -Sy --needed --noconfirm {{ range .packages.linux.arch.yay }}{{ . }} {{ end }}
   fi
 elif command -v apt >/dev/null; then
-  echo "Injecting repositories for Linux Mint 22.3..."
+  echo "Injecting valid repositories for Linux Mint 22.3..."
   sudo add-apt-repository ppa:zhangsongcui3371/fastfetch -y
   sudo add-apt-repository ppa:deadsnakes/ppa -y
   sudo apt update
 
-  # Generate the string array from chezmoi template data
+  # Generate the clean string layout from your template variables
   RAW_STRING="{{ range .packages.common }}{{ . }} {{ end }}{{ range .packages.linux.debian.apt }}{{ . }} {{ end }}"
   
-  # 1. Strip lazygit out of apt completely to avoid the broken PPA crash
-  # 2. Swap 'libgcc-dev' with the working Ubuntu 24.04 base version package name
+  # Strip lazygit out of apt list to bypass PPA block, and swap libgcc-dev with libgcc-13-dev
   SANITIZED_STRING=$(echo "$RAW_STRING" | sed 's/\blazygit\b//g' | sed 's/\blibgcc-dev\b/libgcc-13-dev build-essential/g')
 
   echo "Installing sanitized packages..."
   sudo apt install -y $SANITIZED_STRING
 
-  # 3. Handle lazygit cleanly via its official pre-compiled native binary
+  # Handle lazygit correctly via official pre-compiled native binary
   if ! command -v lazygit >/dev/null; then
-    echo "Installing lazygit via GitHub release binary..."
-    LAZYGIT_VERSION=$(curl -s "https://github.com" | grep -Po '"tag_name": "v\K[^"]*')
-    curl -Lo lazygit.tar.gz "https://github.com{LAZYGIT_VERSION}_Linux_x86_64.tar.gz"
+    echo "Installing lazygit via corrected GitHub release binary..."
+    LAZYGIT_VERSION=$(curl -s "https://api.github.com/repos/jesseduffield/lazygit/releases/latest" | grep -Po '"tag_name": "v\K[^"]*')
+    curl -Lo lazygit.tar.gz "https://github.com/jesseduffield/lazygit/releases/latest/download/lazygit_${LAZYGIT_VERSION}_Linux_x86_64.tar.gz"
     tar xf lazygit.tar.gz lazygit
     sudo install lazygit /usr/local/bin/
     rm -f lazygit lazygit.tar.gz
   fi
 fi
 
-# Post-install shell setups
+# Shell customizations
 if [ -f /usr/bin/fish ]; then chsh -s /usr/bin/fish; fi
 if command -v playerctld >/dev/null; then playerctld daemon; fi
 if [ -f ~/.config/wallpaper/mountain.jpg ] && command -v betterlockscreen >/dev/null; then
