@@ -9,7 +9,6 @@ if command -v pacman >/dev/null; then
   fi
 elif command -v apt >/dev/null; then
   echo "Setting up external repositories..."
-  sudo add-apt-repository ppa:zhangsongcui3371/fastfetch -y
   sudo add-apt-repository ppa:deadsnakes/ppa -y
   sudo apt update
 
